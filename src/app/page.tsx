@@ -1,10 +1,10 @@
 // app/page.js
 
-import Dashboard from "./dashboard/page";
-import SignUp from "./signup/page";
+import AuthPage from "./auth/page";
+
 
 export default function Home() {
   return (
-   <SignUp/>
+   <AuthPage/>
   );
 }

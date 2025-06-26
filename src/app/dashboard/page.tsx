@@ -1,110 +1,18 @@
-// 'use client';
+"use client";
 
-// import { useEffect, useState } from 'react';
-
-// import { useRouter } from 'next/navigation';
-// import { createClient, Session, User } from '@supabase/supabase-js';
-// import { supabase } from '../../../lib/supabase_client';
-
-// const Dashboard = () => {
-//   const router = useRouter();
-//   const [user, setUser] = useState<User | null>(null);
-//   const [diseasedCount, setDiseasedCount] = useState<number>(0);
-//   const [healthyCount, setHealthyCount] = useState<number>(0);
-
-//   useEffect(() => {
-//     const getSession = async () => {
-//       const {
-//         data: { session },
-//       } = await supabase.auth.getSession();
-
-//       if (!session) {
-//         router.push('/login');
-//       } else {
-//         setUser(session.user);
-//       }
-//     };
-
-//     getSession();
-//   }, [router]);
-
-  
-
-//   useEffect(() => {
-//     const fetchDiagnosisCounts = async () => {
-//       const { data, error } = await supabase
-//         .from('diagnosis_results')
-//         .select('diseased');
-
-//       if (error) {
-//         console.error('Error fetching data:', error);
-//         return;
-//       }
-
-//       if (data) {
-//         const diseased = data.filter((item) => item.diseased === 'Yes').length;
-//         const healthy = data.filter((item) => item.diseased === 'No').length;
-//         setDiseasedCount(diseased);
-//         setHealthyCount(healthy);
-//       }
-//     };
-
-//     fetchDiagnosisCounts();
-//   }, []);
-
-//   const handleLogout = async () => {
-//     await supabase.auth.signOut();
-//     router.push('/login');
-//   };
-
-
-//   return (
-//     <div style={{ padding: 20 }}>
-//       <h1 className='text-center'>Dashboard</h1>
-//       {user && (
-//         <>
-//           <p className='text-center'>Welcome, {user.email}</p>
-//           <button onClick={handleLogout}>Logout</button>
-//           <section className="bg-gradient-to-tr relative from-[#1A71FF33] to-[#246BFD] w-[100%] p-4 rounded-3xl mt-[30px]">
-//             <div>
-//               <div>
-//                 <p className="font-medium text-[20px] text-center my-6 mt-[40px]">Diagnosis from the app</p>
-//                 <p className="font-semibold text-center text-[30px]">{diseasedCount+healthyCount}</p>
-//               </div>
-//               <section className="w-[55%] flex justify-between p-2 max-[761px]:w-[100%]">
-//                 <div className="bg-[#FFFFFF55] p-4 px-8 rounded-xl">
-//                   <p className= 'text-center'>Diseased Maize</p>
-//                   <br />
-//                   <div className="flex">
-//                     <p className="font-semibold text-center ml-[40px] text-[30px]">{diseasedCount}</p>
-//                   </div>
-//                 </div>
-//                 <div className="bg-[#FFFFFF55] p-4 rounded-xl">
-//                   <p className='text-center text-bold'>Healthy Maize</p>
-//                   <div className="flex pt-4 items-center">
-//                     <p className="font-semibold text-center ml-[40px] text-[30px]">{healthyCount}</p>
-//                   </div>
-//                 </div>
-//               </section>
-//             </div>
-//             <div className="w-[40%] absolute right-[-10px] bottom-[0] max-[761px]:hidden">
-//             </div>
-//           </section>
-//         </>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default Dashboard;
-
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../../../lib/supabase_client';
-
+import { useState, useEffect, JSX } from "react";
+import {
+  Leaf,
+  LogOut,
+  AlertTriangle,
+  Shield,
+  BarChart3,
+  Download,
+  Bell,
+  Settings,
+  User,
+  Activity,
+} from "lucide-react";
 import {
   LineChart,
   Line,
@@ -114,7 +22,14 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from 'recharts';
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
+import { useRouter } from "next/navigation";
+import { supabase } from "../../../lib/supabase_client";
+
 
 type DiagnosisData = {
   date: string;
@@ -122,169 +37,319 @@ type DiagnosisData = {
   healthy: number;
 };
 
-const Dashboard = () => {
+export default function Dashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [diseasedCount, setDiseasedCount] = useState<number>(0);
-  const [healthyCount, setHealthyCount] = useState<number>(0);
+  const [user, setUser] = useState<{ email: string; name?: string } | null>(
+    null
+  );
+  const [diseasedCount, setDiseasedCount] = useState(0);
+  const [healthyCount, setHealthyCount] = useState(0);
   const [chartData, setChartData] = useState<DiagnosisData[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push('/login');
-      } else {
-        setUser(session.user);
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) {
+        router.push("/auth");
+        return;
       }
+
+      const session = data.session;
+      setUser({
+        email: session.user.email ?? "",
+        name: session.user.user_metadata?.name || undefined,
+      });
     };
 
     getSession();
   }, [router]);
 
-  // Count totals for diseased and healthy
   useEffect(() => {
-    const fetchDiagnosisCounts = async () => {
+    const fetchAllData = async () => {
+      setLoading(true);
+
       const { data, error } = await supabase
-        .from('diagnosis_results')
-        .select('diseased');
+        .from("diagnosis_results")
+        .select("diseased, created_at")
+        .order("created_at", { ascending: true });
 
       if (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
+        setLoading(false);
         return;
       }
 
-      if (data) {
-        const diseased = data.filter((item) => item.diseased === 'Yes').length;
-        const healthy = data.filter((item) => item.diseased === 'No').length;
-        setDiseasedCount(diseased);
-        setHealthyCount(healthy);
-      }
-    };
+      // Diagnosis counts
+      const diseased = data.filter((item) => item.diseased === "Yes").length;
+      const healthy = data.filter((item) => item.diseased === "No").length;
+      setDiseasedCount(diseased);
+      setHealthyCount(healthy);
 
-    fetchDiagnosisCounts();
-  }, []);
-
-  // Fetch data for the graph
-  useEffect(() => {
-    const fetchChartData = async () => {
-      const { data, error } = await supabase
-        .from('diagnosis_results')
-        .select('diseased, created_at');
-  
-      if (error) {
-        console.error('Error fetching chart data:', error);
-        return;
-      }
-  
-      const countsPerDay: { [key: string]: { diseased: number; healthy: number } } = {};
-  
+      // Chart Data Grouping
+      const countsPerDay: {
+        [key: string]: { diseased: number; healthy: number };
+      } = {};
       data.forEach((item) => {
-        const dateObj = new Date(item.created_at);
-        // Force the date into YYYY-MM-DD format to avoid timezone errors
-        const date = dateObj.toISOString().split('T')[0]; // "2025-06-25"
-  
+        const date = new Date(item.created_at).toISOString().split("T")[0];
         if (!countsPerDay[date]) {
           countsPerDay[date] = { diseased: 0, healthy: 0 };
         }
-  
-        if (item.diseased === 'Yes') {
-          countsPerDay[date].diseased += 1;
-        } else if (item.diseased === 'No') {
-          countsPerDay[date].healthy += 1;
-        }
+        if (item.diseased === "Yes") countsPerDay[date].diseased += 1;
+        else if (item.diseased === "No") countsPerDay[date].healthy += 1;
       });
-  
-      const formattedData = Object.entries(countsPerDay).map(([date, counts]) => ({
-        date,
-        diseased: counts.diseased,
-        healthy: counts.healthy,
-      }));
-  
-      setChartData(formattedData);
-  
-      // 🔥 Also update the total counts from the same data
-      const totalDiseased = formattedData.reduce((sum, item) => sum + item.diseased, 0);
-      const totalHealthy = formattedData.reduce((sum, item) => sum + item.healthy, 0);
-  
-      setDiseasedCount(totalDiseased);
-      setHealthyCount(totalHealthy);
+
+      const formattedChartData = Object.entries(countsPerDay).map(
+        ([date, counts]) => ({
+          date,
+          diseased: counts.diseased,
+          healthy: counts.healthy,
+        })
+      );
+      setChartData(formattedChartData);
+     
+      setLoading(false);
     };
-  
-    fetchChartData();
+
+    fetchAllData();
   }, []);
-  
-        
 
+  const totalDiagnoses = diseasedCount + healthyCount;
+  const diseaseRate =
+    totalDiagnoses > 0
+      ? ((diseasedCount / totalDiagnoses) * 100).toFixed(1)
+      : "0";
 
+  const pieData = [
+    { name: "Healthy", value: healthyCount, color: "#10B981" },
+    { name: "Diseased", value: diseasedCount, color: "#EF4444" },
+  ];
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    router.push("/auth");
   };
 
   return (
-    <div className="p-8">
-      <h1 className="text-3xl text-center font-bold mb-6">Dashboard</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-xl mr-3">
+                <Leaf className="w-6 h-6 text-green-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">Maize Disease Detector</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+              
+              </button>
+              <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+             
+              </button>
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-green-600" />
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm font-medium">Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      {user && (
-        <>
-          <p className="text-center mb-4">Welcome, {user.email}</p>
-          <button
-            onClick={handleLogout}
-            className="block mx-auto mb-6 bg-red-500 text-white px-4 py-2 rounded"
-          >
-            Logout
-          </button>
+      {/* Main */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Welcome
+          </h2>
+          <p className="text-gray-600">
+            Maize health overview,{" "}
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
 
-          <section className="bg-gradient-to-tr relative from-[#1A71FF33] to-[#246BFD] w-[100%] p-4 rounded-3xl mt-[30px]">
-             <div>
-               <div>
-                 <p className="font-medium text-[20px] text-center my-6 t-[10px]">Diagnosis from the app</p>
-                 <p className="font-semibold text-center text-[30px]">{diseasedCount+healthyCount}</p>
-               </div>
-               <section className="w-[55%] flex justify-between p-2 max-[761px]:w-[100%]">
-                 <div className="bg-[#FFFFFF55] ml-[70%] p-4 px-8 rounded-xl">
-                   <p className= 'text-center'>Diseased Maize</p>
-                   <br />
-                   <div className="flex">
-                    <p className="font-semibold text-center ml-[40px] text-[30px]">{diseasedCount}</p>
-                   </div>
-                 </div>
-                 <div className="bg-[#FFFFFF55]   p-4 rounded-xl">
-                   <p className='text-center text-bold'>Healthy Maize</p>
-                   <div className="flex pt-4 items-center">
-                     <p className="font-semibold text-center ml-[40px] text-[30px]">{healthyCount}</p>
-                   </div>
-                 </div>
-               </section>
-             </div>
-             <div className="w-[40%] absolute right-[-10px] bottom-[0] max-[761px]:hidden">
-             </div>
-           </section>
-          {/* 🚀 Chart Section */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h2 className="text-2xl text-center font-semibold mb-4">Maize Health Trend Graph</h2>
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Diagnoses */}
+          <StatCard
+            title="Total Diagnoses"
+            value={totalDiagnoses}
+            subtitle=""
+            icon={<BarChart3 className="w-6 h-6 text-blue-600" />}
+            bg="bg-blue-100"
+          />
+          {/* Healthy */}
+          <StatCard
+            title="Healthy Plants"
+            value={healthyCount}
+            subtitle=""
+            icon={<Shield className="w-6 h-6 text-green-600" />}
+            bg="bg-green-100"
+          />
+          {/* Diseased */}
+          <StatCard
+            title="Diseased Plants"
+            value={diseasedCount}
+            subtitle=""
+            icon={<AlertTriangle className="w-6 h-6 text-red-600" />}
+            bg="bg-red-100"
+          />
+          {/* Health Score */}
+          <StatCard
+            title="Health Score"
+            value={`${(100 - parseFloat(diseaseRate)).toFixed(0)}%`}
+            subtitle=""
+            icon={<Activity className="w-6 h-6 text-green-600" />}
+            bg="bg-green-100"
+          />
+        </div>
 
-            <ResponsiveContainer width="100%" height={400}>
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Line Chart */}
+          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border">
+            <ChartHeader
+              title="Maize Disease Trend Analysis"
+            />
+            <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
+                <XAxis dataKey="date" tickFormatter={formatDate} />
                 <YAxis allowDecimals={false} />
-                <Tooltip />
+                <Tooltip labelFormatter={(v) => `Date: ${formatDate(v)}`} />
                 <Legend />
-                <Line type="monotone" dataKey="diseased" stroke="#F87171" name="Diseased" />
-                <Line type="monotone" dataKey="healthy" stroke="#4ADE80" name="Healthy" />
+                <Line
+                  type="monotone"
+                  dataKey="healthy"
+                  stroke="#10B981"
+                  strokeWidth={3}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="diseased"
+                  stroke="#EF4444"
+                  strokeWidth={3}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </>
-      )}
+
+          {/* Pie Chart */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">
+              Health Distribution
+            </h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  dataKey="value"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-4 space-y-2">
+              {pieData.map((entry, index) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="flex items-center">
+                    <span
+                      className="w-3 h-3 rounded-full mr-2"
+                      style={{ backgroundColor: entry.color }}
+                    ></span>
+                    {entry.name}
+                  </span>
+                  <span className="font-medium text-gray-900">
+                    {entry.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+       
+      </main>
     </div>
   );
-};
+}
 
-export default Dashboard;
+function StatCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  bg,
+}: {
+  title: string;
+  value: string | number;
+  subtitle: string;
+  icon: JSX.Element;
+  bg: string;
+}) {
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-sm border">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+          <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+        </div>
+        <div className={`p-3 rounded-xl ${bg}`}>{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+function ChartHeader({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        {subtitle && <p className="text-sm text-gray-600">{subtitle}</p>}
+      </div>
+      <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">
+   
+      </button>
+    </div>
+  );
+}
